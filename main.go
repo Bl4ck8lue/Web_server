@@ -75,7 +75,7 @@ func basedAuth(w http.ResponseWriter, r *http.Request) {
 	//w.Write([]byte(`{"message": "welcome to basic world!"}`))
 	w.Write([]byte(fmt.Sprintf(`
 		Welcome, %s!
-		<form action="/logout" method="POST">
+		<form action="/logout">
 			<input type="submit" value="Logout">
 		</form>
 	`, username)))
@@ -84,8 +84,9 @@ func basedAuth(w http.ResponseWriter, r *http.Request) {
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/html")
 	// Очищаем заголовок Authorization, чтобы выйти из аккаунта
-	w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+	w.Header().Set("WWW-Authenticate", `Basic realm="Give username and password"`)
 	w.WriteHeader(http.StatusUnauthorized)
+
 	fmt.Fprint(w, "Logged out. ")
 	w.Write([]byte(`
 		Back to Main Page?

@@ -47,7 +47,7 @@ func isAuthorized(username, password string, credentials []Credentials) bool {
 }
 
 func basedAuth(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
+	w.Header().Add("Content-Type", "text/html")
 
 	userCredentials, err := readCredentialsFromFile("data.txt")
 	if err != nil {
@@ -72,7 +72,27 @@ func basedAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"message": "welcome to basic world!"}`))
+	//w.Write([]byte(`{"message": "welcome to basic world!"}`))
+	w.Write([]byte(fmt.Sprintf(`
+		Welcome, %s!
+		<form action="/logout" method="POST">
+			<input type="submit" value="Logout">
+		</form>
+	`, username)))
+}
+
+func logoutHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "text/html")
+	// Очищаем заголовок Authorization, чтобы выйти из аккаунта
+	w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+	w.WriteHeader(http.StatusUnauthorized)
+	fmt.Fprint(w, "Logged out. ")
+	w.Write([]byte(`
+		Back to Main Page?
+		<form action="/">
+			<input type="submit" value="Back">
+		</form>
+	`))
 }
 
 func home(w http.ResponseWriter, r *http.Request) {
@@ -102,6 +122,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 func main() {
 	http.HandleFunc("/", home)
 	http.HandleFunc("/based", basedAuth)
+	http.HandleFunc("/logout", logoutHandler)
 	/*http.HandleFunc("/cookie", cookie)
 	http.HandleFunc("/token", basedAuth)*/
 

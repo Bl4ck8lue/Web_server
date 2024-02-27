@@ -4,7 +4,38 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 )
+
+type Credentials struct {
+	Username string
+	Password string
+}
+
+func readCredentialsFromFile(filepath string) ([]Credentials, error) {
+	content, err := os.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	var userCredentials []Credentials
+
+	lines := strings.Split(string(content), "\n")
+
+	for _, line := range lines {
+		parts := strings.Fields(line)
+		if len(parts) == 2 {
+			cred := Credentials{
+				Username: parts[0],
+				Password: parts[1],
+			}
+			userCredentials = append(userCredentials, cred)
+		}
+	}
+
+	return userCredentials, nil
+}
 
 func home(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/html")

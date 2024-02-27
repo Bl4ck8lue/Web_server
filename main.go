@@ -37,6 +37,44 @@ func readCredentialsFromFile(filepath string) ([]Credentials, error) {
 	return userCredentials, nil
 }
 
+func isAuthorized(username, password string, credentials []Credentials) bool {
+	for _, cred := range credentials {
+		if cred.Username == username && cred.Password == password {
+			return true
+		}
+	}
+	return false
+}
+
+func basedAuth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+
+	userCredentials, err := readCredentialsFromFile("data.txt")
+	if err != nil {
+		http.Error(w, "Unable to read file", http.StatusInternalServerError)
+		return
+	}
+
+	username, password, ok := r.BasicAuth()
+
+	if !ok {
+		w.Header().Add("WWW-Authenticate", `Basic realm="Give username and password"`)
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"message": "No basic auth present"}`))
+		return
+	}
+
+	if !isAuthorized(string(username), string(password), userCredentials) {
+		w.Header().Add("WWW-Authenticate", `Basic realm="Give username and password"`)
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"message": "Invalid username or password"}`))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"message": "welcome to basic world!"}`))
+}
+
 func home(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/html")
 
@@ -63,8 +101,8 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/", home)
-	/*http.HandleFunc("/based", basedAuth)
-	http.HandleFunc("/cookie", cookie)
+	http.HandleFunc("/based", basedAuth)
+	/*http.HandleFunc("/cookie", cookie)
 	http.HandleFunc("/token", basedAuth)*/
 
 	fmt.Println("Starting Server at port :8080")

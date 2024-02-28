@@ -84,7 +84,7 @@ func basedAuth(w http.ResponseWriter, r *http.Request) {
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/html")
 	// Очищаем заголовок Authorization, чтобы выйти из аккаунта
-	w.Header().Set("WWW-Authenticate", `Basic realm="Give username and password"`)
+	w.Header().Add("WWW-Authenticate", `Basic realm="Give username and password"`)
 	w.WriteHeader(http.StatusUnauthorized)
 
 	fmt.Fprint(w, "Logged out. ")

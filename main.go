@@ -2,13 +2,14 @@ package main
 
 import (
 	"bufio"
-
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Credentials struct {
@@ -151,7 +152,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 			<p>Choose a page:</p>
 			<ul>
 				<li><a href="/based">Based Authorization</a></li>
-				<li><a href="/signin">Second Page</a></li>
+				<li><a href="/sign">Cookie Authorization</a></li>
 				<li><a href="/token">Third Page</a></li>
 			</ul>
 		</body>
@@ -175,10 +176,10 @@ func signinHome(w http.ResponseWriter, r *http.Request) {
 			<title>Main Page</title>
 		</head>
 		<body>
-			<form method="POST" action="/welcome">
-        		<label>Login</label><input name="login" type="text" value="">
+			<form method="POST" action="/signin">
+        		<label>Login </label><input name="login" type="text" value="">
         		<br>
-        		<label>Password</label><input name="password" type="password" value="">
+        		<label>Password </label><input name="password" type="password" value="">
         		<br>
         		<input type="submit" value="submit">
     		</form>
@@ -189,12 +190,47 @@ func signinHome(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(html))
 }
 
+func Signin(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "text/html")
+	var creds users
+	// Get the expected password from our in memory map
+	expectedPassword, ok := userss[creds.Username]
+
+	// If a password exists for the given user
+	// AND, if it is the same as the password we received, the we can move ahead
+	// if NOT, then we return an "Unauthorized" status
+	if !ok || expectedPassword != creds.Password {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	// Create a new random session token
+	// we use the "github.com/google/uuid" library to generate UUIDs
+	sessionToken := uuid.NewString()
+	expiresAt := time.Now().Add(120 * time.Second)
+
+	// Set the token in the session map, along with the session information
+	sessions[sessionToken] = session{
+		username: creds.Username,
+		expiry:   expiresAt,
+	}
+
+	// Finally, we set the client cookie for "session_token" as the session token we just generated
+	// we also set an expiry time of 120 seconds
+	http.SetCookie(w, &http.Cookie{
+		Name:    "session_token",
+		Value:   sessionToken,
+		Expires: expiresAt,
+	})
+	w.Write([]byte(`{"message": "Invalid username or password"}`))
+}
+
 func main() {
 	http.HandleFunc("/", home)
 	http.HandleFunc("/based", basedAuth)
 	http.HandleFunc("/logout", logoutHandler)
 	http.HandleFunc("/sign", signinHome)
-	//http.HandleFunc("/welcome", Welcome)
+	http.HandleFunc("/signin", Signin)
 	//http.HandleFunc("/logoutcookie", Logout)
 	/*http.HandleFunc("/cookie", cookie)
 	http.HandleFunc("/token", basedAuth)*/

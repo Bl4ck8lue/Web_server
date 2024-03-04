@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
@@ -10,9 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
-
-	"github.com/google/uuid"
 )
 
 type Credentials struct {
@@ -42,20 +38,6 @@ func init() {
 	if err := scanner.Err(); err != nil {
 		panic(err)
 	}
-}
-
-// this map stores the users sessions. For larger scale applications, you can use a database or cache for this purpose
-var sessions = map[string]session{}
-
-// each session contains the username of the user and the time at which it expires
-type session struct {
-	username string
-	expiry   time.Time
-}
-
-// we'll use this method later to determine if the session has expired
-func (s session) isExpired() bool {
-	return s.expiry.Before(time.Now())
 }
 
 func readCredentialsFromFile(filepath string) ([]Credentials, error) {
@@ -170,73 +152,6 @@ func yandexAuth(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-}
-
-type users struct {
-	Password string `json:"password"`
-	Username string `json:"username"`
-}
-
-func Signin(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/html")
-	html := `
-		<!DOCTYPE html>
-		<html>
-		<head>
-			<title>Main Page</title>
-		</head>
-		<body>
-			<form method="POST" action="/welcome">
-        		<label>Login</label><input name="login" type="text" value="">
-        		<br>
-        		<label>Password</label><input name="password" type="password" value="">
-        		<br>
-        		<input type="submit" value="submit">
-    		</form>
-		</body>
-		</html>
-	`
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(html))
-	var creds users
-	// Get the JSON body and decode into credentials
-	err := json.NewDecoder(r.Body).Decode(&creds)
-	if err != nil {
-		// If the structure of the body is wrong, return an HTTP error
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	// Get the expected password from our in memory map
-	expectedPassword, ok := userss[creds.Username]
-
-	// If a password exists for the given user
-	// AND, if it is the same as the password we received, the we can move ahead
-	// if NOT, then we return an "Unauthorized" status
-	if !ok || expectedPassword != creds.Password {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-
-	// Create a new random session token
-	// we use the "github.com/google/uuid" library to generate UUIDs
-	sessionToken := uuid.NewString()
-	expiresAt := time.Now().Add(120 * time.Second)
-
-	// Set the token in the session map, along with the session information
-	sessions[sessionToken] = session{
-		username: creds.Username,
-		expiry:   expiresAt,
-	}
-
-	// Finally, we set the client cookie for "session_token" as the session token we just generated
-	// we also set an expiry time of 120 seconds
-	http.SetCookie(w, &http.Cookie{
-		Name:    "session_token",
-		Value:   sessionToken,
-		Expires: expiresAt,
-	})
-
 }
 
 func main() {

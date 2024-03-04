@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -97,33 +99,41 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func home(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/html")
-
-	html := `
-		<!DOCTYPE html>
-		<html>
-		<head>
-			<title>Main Page</title>
-		</head>
-		<body>
-			<h1>Welcome to Main Page!</h1>
-			<p>Choose a page:</p>
-			<ul>
-				<li><a href="/based">Based Authorization</a></li>
-				<li><a href="/cookie">Second Page</a></li>
-				<li><a href="/token">Third Page</a></li>
-			</ul>
-		</body>
-		</html>
-	`
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(html))
+	path := filepath.Join("index.html")
+	//создаем html-шаблон
+	tmpl, err := template.ParseFiles(path)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	//выводим шаблон клиенту в браузер
+	err = tmpl.Execute(w, nil)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+}
+func yandexAuth(w http.ResponseWriter, r *http.Request) {
+	path := filepath.Join("yandexAuth.html")
+	//создаем html-шаблон
+	tmpl, err := template.ParseFiles(path)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	//выводим шаблон клиенту в браузер
+	err = tmpl.Execute(w, nil)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
 }
 
 func main() {
 	http.HandleFunc("/", home)
 	http.HandleFunc("/based", basedAuth)
 	http.HandleFunc("/logout", logoutHandler)
+	http.HandleFunc("/yandexAuth", yandexAuth)
 	/*http.HandleFunc("/cookie", cookie)
 	http.HandleFunc("/token", basedAuth)*/
 

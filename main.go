@@ -2,12 +2,15 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -139,10 +142,94 @@ func home(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func welcomeYa(w http.ResponseWriter, r *http.Request) {
+	path := filepath.Join("welcome.html")
+	//создаем html-шаблон
+	tmpl, err := template.ParseFiles(path)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	//выводим шаблон клиенту в браузер
+	err = tmpl.Execute(w, nil)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+
+	id, err := strconv.Atoi(r.URL.Query().Get("code"))
+	if err != nil || id < 1 {
+		http.NotFound(w, r)
+		return
+	}
+
+	// Используем функцию fmt.Fprintf() для вставки значения из id в строку ответа
+	// и записываем его в http.ResponseWriter.
+	//fmt.Fprintf(w, "Отображение выбранной заметки с ID %d...", id)
+
+	data := []byte(("grant_type=authorization_code&code=" + fmt.Sprint(id) + "&client_id=476e1aa7abaa4dddba753090db19ce0a&client_secret=685c2349141b4e7f9f9e727c2fbe8452"))
+	re := bytes.NewReader(data)
+	resp, err := http.Post("https://oauth.yandex.ru/token", "application/x-www-form-urlencoded", re)
+
+	if err != nil {
+		fmt.Println("Ошибка при выполнении запроса:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Чтение и декодирование JSON-ответа
+	var response map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	if err != nil {
+		fmt.Println("Ошибка при декодировании JSON:", err)
+		return
+	}
+
+	// Извлечение access_token
+	accessToken, ok := response["access_token"].(string)
+	if !ok {
+		fmt.Println("Не удалось извлечь access_token из ответа")
+		return
+	}
+
+	// Использование параметра
+	fmt.Println("Access Token:", accessToken)
+
+	datax := []byte(("oauth_token=" + accessToken + "&format=json"))
+	rex := bytes.NewReader(datax)
+	x, err := http.Post("https://login.yandex.ru/info?", "application/x-www-form-urlencoded", rex)
+	if err != nil {
+		fmt.Println("Ошибка при выполнении запроса:", err)
+		return
+	}
+	defer x.Body.Close()
+
+	// Чтение и декодирование JSON-ответа
+	var responsex map[string]interface{}
+	err = json.NewDecoder(x.Body).Decode(&responsex)
+	if err != nil {
+		fmt.Println("Ошибка при декодировании JSON:", err)
+		return
+	}
+
+	// Извлечение access_token
+	login, ok := responsex["login"].(string)
+	if !ok {
+		fmt.Println("Не удалось извлечь access_token из ответа")
+		return
+	}
+
+	// Использование параметра
+	fmt.Println("Welcome: ", login)
+	w.Write([]byte(fmt.Sprintf(`Welcome, %s!`, login)))
+
+}
+
 func main() {
 	http.HandleFunc("/", home)
 	http.HandleFunc("/based", basedAuth)
 	http.HandleFunc("/logout", logoutHandler)
+	http.HandleFunc("/welcomeYa", welcomeYa)
 	/*http.HandleFunc("/cookie", cookie)
 	http.HandleFunc("/token", basedAuth)*/
 

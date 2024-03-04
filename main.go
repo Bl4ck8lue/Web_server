@@ -138,27 +138,11 @@ func home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
-func yandexAuth(w http.ResponseWriter, r *http.Request) {
-	path := filepath.Join("yandexAuth.html")
-	//создаем html-шаблон
-	tmpl, err := template.ParseFiles(path)
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-	//выводим шаблон клиенту в браузер
-	err = tmpl.Execute(w, nil)
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-}
 
 func main() {
 	http.HandleFunc("/", home)
 	http.HandleFunc("/based", basedAuth)
 	http.HandleFunc("/logout", logoutHandler)
-	http.HandleFunc("/yandexAuth", yandexAuth)
 	/*http.HandleFunc("/cookie", cookie)
 	http.HandleFunc("/token", basedAuth)*/
 

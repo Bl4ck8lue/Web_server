@@ -43,6 +43,8 @@ func init() {
 	}
 }
 
+// BASED authentication AND READING DATA FROM FILE ----------------------------------------------------------
+
 func readCredentialsFromFile(filepath string) ([]Credentials, error) {
 	content, err := os.ReadFile(filepath)
 	if err != nil {
@@ -126,21 +128,7 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	`))
 }
 
-func home(w http.ResponseWriter, r *http.Request) {
-	path := filepath.Join("index.html")
-	//создаем html-шаблон
-	tmpl, err := template.ParseFiles(path)
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-	//выводим шаблон клиенту в браузер
-	err = tmpl.Execute(w, nil)
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-}
+// YANDEX authentication ------------------------------------------------------
 
 func welcomeYa(w http.ResponseWriter, r *http.Request) {
 	path := filepath.Join("welcome.html")
@@ -170,6 +158,12 @@ func welcomeYa(w http.ResponseWriter, r *http.Request) {
 	data := []byte(("grant_type=authorization_code&code=" + fmt.Sprint(id) + "&client_id=476e1aa7abaa4dddba753090db19ce0a&client_secret=685c2349141b4e7f9f9e727c2fbe8452"))
 	re := bytes.NewReader(data)
 	resp, err := http.Post("https://oauth.yandex.ru/token", "application/x-www-form-urlencoded", re)
+
+	// https://oauth.yandex.ru/authorize?response_type=code&client_id=476e1aa7abaa4dddba753090db19ce0a
+
+	/* data := []byte(("&access_token=" + fmt.Sprint(accessToken) + "&client_id=476e1aa7abaa4dddba753090db19ce0a&client_secret=685c2349141b4e7f9f9e727c2fbe8452"))
+	re := bytes.NewReader(data)
+	resp, err := http.Post("https://oauth.yandex.ru/token", "application/x-www-form-urlencoded", re) */
 
 	if err != nil {
 		fmt.Println("Ошибка при выполнении запроса:", err)
@@ -223,6 +217,60 @@ func welcomeYa(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Welcome: ", login)
 	w.Write([]byte(fmt.Sprintf(`Welcome, %s!`, login)))
 
+	w.Write([]byte(fmt.Sprintf(`
+		<form action="/logoutYa">
+			<input type="submit" value="Logout">
+		</form>`)))
+
+	/*data1 := []byte(("&access_token=y0_AgAAAAAVmfTTAAtlSgAAAAD9HcRVAACTUVgOZ8BH87a81rm3ge6Si-pG6w&client_id=476e1aa7abaa4dddba753090db19ce0a&client_secret=685c2349141b4e7f9f9e727c2fbe8452"))
+	re1 := bytes.NewReader(data1)
+	resp1, err := http.Post("https://oauth.yandex.ru/token", "application/x-www-form-urlencoded", re1)
+	if err != nil {
+		fmt.Println("Ошибка при выполнении запроса:", err)
+		return
+	}
+	defer resp1.Body.Close()
+	http.Redirect(w, r, "/", http.StatusSeeOther)*/
+}
+
+func logoutYa(w http.ResponseWriter, r *http.Request) {
+	//w.Header().Add("Content-Type", "text/html")
+	// x, err := http.Post("https://oauth.yandex.ru/", "application/x-www-form-urlencoded", rex)
+	id, err := strconv.Atoi(r.URL.Query().Get("code"))
+	if err != nil || id < 1 {
+		http.NotFound(w, r)
+		return
+	}
+	data1 := []byte((fmt.Sprint(id) + "access_token=y0_AgAAAABqwZVBAAtlSgAAAAD9HjKhAABIt5LFMBREoqdt6421aTZ-2wB3pg&client_id=476e1aa7abaa4dddba753090db19ce0a&client_secret=685c2349141b4e7f9f9e727c2fbe8452"))
+	re := bytes.NewReader(data1)
+	resp1, err := http.Post("https://oauth.yandex.ru/revoke?", "application/x-www-form-urlencoded", re)
+	if err != nil {
+		fmt.Println("Ошибка при выполнении запроса:", err)
+		return
+	}
+	defer resp1.Body.Close()
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// MAIN PAGE AND HandleFuncs ----------------------------------------------------------
+
+func home(w http.ResponseWriter, r *http.Request) {
+	cookie := http.Cookie{Name: "", Value: ""}
+	http.SetCookie(w, &cookie)
+	path := filepath.Join("index.html")
+	//создаем html-шаблон
+	tmpl, err := template.ParseFiles(path)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	//выводим шаблон клиенту в браузер
+	err = tmpl.Execute(w, nil)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
 }
 
 func main() {
@@ -230,6 +278,7 @@ func main() {
 	http.HandleFunc("/based", basedAuth)
 	http.HandleFunc("/logout", logoutHandler)
 	http.HandleFunc("/welcomeYa", welcomeYa)
+	http.HandleFunc("/logoutYa", logoutYa)
 	/*http.HandleFunc("/cookie", cookie)
 	http.HandleFunc("/token", basedAuth)*/
 

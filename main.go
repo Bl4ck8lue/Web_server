@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Credentials struct {
@@ -20,6 +21,15 @@ type Credentials struct {
 }
 
 var userss = make(map[string]string)
+
+// this map stores the users sessions. For larger scale applications, you can use a database or cache for this purpose
+var sessions = map[string]session{}
+
+// each session contains the username of the user and the time at which it expires
+type session struct {
+	username string
+	expiry   time.Time
+}
 
 func init() {
 	// Считывание логинов и паролей из файла
@@ -217,6 +227,20 @@ func welcomeYa(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Welcome: ", login)
 	w.Write([]byte(fmt.Sprintf(`Welcome, %s!`, login)))
 
+	cookie := http.Cookie{
+		Name:     "exampleCookie",
+		Value:    "Hello world!",
+		Path:     "/",
+		MaxAge:   3600,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	http.SetCookie(w, &cookie)
+
+	w.Write([]byte("cookie set!"))
+
 	w.Write([]byte(fmt.Sprintf(`
 		<form action="/logoutYa">
 			<input type="submit" value="Logout">
@@ -234,21 +258,9 @@ func welcomeYa(w http.ResponseWriter, r *http.Request) {
 }
 
 func logoutYa(w http.ResponseWriter, r *http.Request) {
-	//w.Header().Add("Content-Type", "text/html")
-	// x, err := http.Post("https://oauth.yandex.ru/", "application/x-www-form-urlencoded", rex)
-	id, err := strconv.Atoi(r.URL.Query().Get("code"))
-	if err != nil || id < 1 {
-		http.NotFound(w, r)
-		return
-	}
-	data1 := []byte((fmt.Sprint(id) + "access_token=y0_AgAAAABqwZVBAAtlSgAAAAD9HjKhAABIt5LFMBREoqdt6421aTZ-2wB3pg&client_id=476e1aa7abaa4dddba753090db19ce0a&client_secret=685c2349141b4e7f9f9e727c2fbe8452"))
-	re := bytes.NewReader(data1)
-	resp1, err := http.Post("https://oauth.yandex.ru/revoke?", "application/x-www-form-urlencoded", re)
-	if err != nil {
-		fmt.Println("Ошибка при выполнении запроса:", err)
-		return
-	}
-	defer resp1.Body.Close()
+
+	// Delete the older session token
+	delete(sessions, "0")
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

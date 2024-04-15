@@ -18,6 +18,9 @@ type Credentials struct {
 	Password string
 }
 
+var str_Token string = ""
+var str_Name string = ""
+
 var userss = make(map[string]string)
 
 // BASED authentication AND READING DATA FROM FILE ----------------------------------------------------------
@@ -104,6 +107,8 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		</form>
 	`))
 }
+
+// COOKIE AUTHORIZATION --------------------------------------------------------
 
 func setCookieHandler(w http.ResponseWriter, r *http.Request) {
 
@@ -249,20 +254,6 @@ func logoutCookie(w http.ResponseWriter, r *http.Request) {
 // YANDEX authentication ------------------------------------------------------
 
 func welcomeYa(w http.ResponseWriter, r *http.Request) {
-	path := filepath.Join("welcome.html")
-	//создаем html-шаблон
-	tmpl, err := template.ParseFiles(path)
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-	//выводим шаблон клиенту в браузер
-	err = tmpl.Execute(w, nil)
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-
 	id, err := strconv.Atoi(r.URL.Query().Get("code"))
 	if err != nil || id < 1 {
 		http.NotFound(w, r)
@@ -321,13 +312,33 @@ func welcomeYa(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Использование параметра
-	fmt.Println("Welcome: ", login)
-	w.Write([]byte(fmt.Sprintf(`Welcome, %s!`, login)))
+	str_Token = accessToken
+	str_Name = login
 
+	http.Redirect(w, r, "/buffForYa", http.StatusSeeOther)
+}
+
+func logoutYa(w http.ResponseWriter, r *http.Request) {
 	cookie := http.Cookie{
-		Name:     "exampleCookie",
-		Value:    "Hello world!",
+		Name:     str_Name,
+		Value:    " ",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	http.SetCookie(w, &cookie)
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func buffForYa(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "text/html")
+	cookie := http.Cookie{
+		Name:     str_Name,
+		Value:    str_Token,
 		Path:     "/",
 		MaxAge:   3600,
 		HttpOnly: true,
@@ -337,19 +348,15 @@ func welcomeYa(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, &cookie)
 
-	w.Write([]byte("cookie set!"))
+	// Использование параметра
+	fmt.Println("Welcome: ", str_Name)
 
 	w.Write([]byte(fmt.Sprintf(`
+		Welcome, %s!
 		<form action="/logoutYa">
 			<input type="submit" value="Logout">
-		</form>`)))
-}
-
-func logoutYa(w http.ResponseWriter, r *http.Request) {
-
-	// Delete the older session token
-
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+		</form>
+	`, str_Name)))
 }
 
 func main() {
@@ -357,7 +364,8 @@ func main() {
 	http.HandleFunc("/based", basedAuth)
 	http.HandleFunc("/logout", logoutHandler)
 	http.HandleFunc("/welcomeYa", welcomeYa)
-	//http.HandleFunc("/logoutYa", logoutYa)
+	http.HandleFunc("/buffForYa", buffForYa)
+	http.HandleFunc("/logoutYa", logoutYa)
 	http.HandleFunc("/redirOnWelcomeCookie", redirOnWelcomeCookie)
 	http.HandleFunc("/welcomeCookie", welcomeCookie)
 	http.HandleFunc("/logoutCookie", logoutCookie)

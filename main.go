@@ -225,11 +225,11 @@ func welcomeCookie(w http.ResponseWriter, r *http.Request) {
 		</form>
 	`, c.Value)))
 
-	w.Write([]byte(fmt.Sprintf(`
+	w.Write([]byte(`
 		<form action="/">
 			<input type="submit" value="Back to main page">
 		</form>
-	`)))
+	`))
 }
 
 func logoutCookie(w http.ResponseWriter, r *http.Request) {
@@ -253,14 +253,35 @@ func logoutCookie(w http.ResponseWriter, r *http.Request) {
 
 // YANDEX authentication ------------------------------------------------------
 
-func welcomeYa(w http.ResponseWriter, r *http.Request) {
+var idGlob int = 0
+
+func getCode(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "text/html")
+
 	id, err := strconv.Atoi(r.URL.Query().Get("code"))
 	if err != nil || id < 1 {
 		http.NotFound(w, r)
 		return
 	}
+	idGlob = id
 
-	data := []byte(("grant_type=authorization_code&code=" + fmt.Sprint(id) + "&client_id=476e1aa7abaa4dddba753090db19ce0a&client_secret=685c2349141b4e7f9f9e727c2fbe8452"))
+	w.Write([]byte(fmt.Sprintf(`
+		Welcome, %d!
+		<form action="/getToken">
+			<input type="submit" value="Logout">
+		</form>
+	`, idGlob)))
+	//http.Redirect(w, r, "/welcomeYa", http.StatusSeeOther)
+}
+
+func check(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "https://oauth.yandex.ru/authorize?response_type=code&client_id=476e1aa7abaa4dddba753090db19ce0a&force_confirm=yes", http.StatusSeeOther)
+}
+
+func getToken(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Add("Content-Type", "text/html")
+	data := []byte(("grant_type=authorization_code&code=" + fmt.Sprint(idGlob) + "&client_id=476e1aa7abaa4dddba753090db19ce0a&client_secret=685c2349141b4e7f9f9e727c2fbe8452"))
 	re := bytes.NewReader(data)
 	resp, err := http.Post("https://oauth.yandex.ru/token", "application/x-www-form-urlencoded", re)
 
@@ -285,10 +306,34 @@ func welcomeYa(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Использование параметра
-	fmt.Println("Access Token:", accessToken)
+	str_Token = accessToken
 
-	datax := []byte(("oauth_token=" + accessToken + "&format=json"))
+	cookie := http.Cookie{
+		Name:     "username",
+		Value:    str_Token,
+		Path:     "/",
+		MaxAge:   3600,
+		HttpOnly: true,
+
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	http.SetCookie(w, &cookie)
+
+	w.Write([]byte(fmt.Sprintf(`
+	accessToken = %s
+		<form action="/getLogin">
+			<input type="submit" value="Logout">
+		</form>
+	`, str_Token)))
+
+}
+
+func getLogin(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Add("Content-Type", "text/html")
+	datax := []byte(("oauth_token=" + str_Token + "&format=json"))
 	rex := bytes.NewReader(datax)
 	x, err := http.Post("https://login.yandex.ru/info?", "application/x-www-form-urlencoded", rex)
 	if err != nil {
@@ -311,16 +356,42 @@ func welcomeYa(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Не удалось извлечь access_token из ответа")
 		return
 	}
-
-	str_Token = accessToken
 	str_Name = login
 
-	http.Redirect(w, r, "/buffForYa", http.StatusSeeOther)
+	w.Write([]byte(fmt.Sprintf(`
+	login = %s
+		<form action="/welcomeYa">
+			<input type="submit" value="Logout">
+		</form>
+	`, str_Name)))
+}
+
+func welcomeYa(w http.ResponseWriter, r *http.Request) {
+	path := filepath.Join("welcome.html")
+	//создаем html-шаблон
+	tmpl, err := template.ParseFiles(path)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	//выводим шаблон клиенту в браузер
+	err = tmpl.Execute(w, nil)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+
+	w.Write([]byte(fmt.Sprintf(`
+	Welcome: %s!
+		<form action="/logoutYa">
+			<input type="submit" value="Logout">
+		</form>
+	`, str_Name)))
 }
 
 func logoutYa(w http.ResponseWriter, r *http.Request) {
 	cookie := http.Cookie{
-		Name:     str_Name,
+		Name:     "username",
 		Value:    " ",
 		Path:     "/",
 		MaxAge:   -1,
@@ -330,33 +401,22 @@ func logoutYa(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, &cookie)
+	str_Name = " "
+	str_Token = " "
+	idGlob = 0
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func buffForYa(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/html")
-	cookie := http.Cookie{
-		Name:     str_Name,
-		Value:    str_Token,
-		Path:     "/",
-		MaxAge:   3600,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
+
+	c, err := r.Cookie("username")
+	if err != nil || c.Value == " " || str_Token == " " || idGlob == 0 {
+		http.Redirect(w, r, "/check", http.StatusSeeOther)
+	} else {
+		http.Redirect(w, r, "/welcomeYa", http.StatusSeeOther)
 	}
-
-	http.SetCookie(w, &cookie)
-
-	// Использование параметра
-	fmt.Println("Welcome: ", str_Name)
-
-	w.Write([]byte(fmt.Sprintf(`
-		Welcome, %s!
-		<form action="/logoutYa">
-			<input type="submit" value="Logout">
-		</form>
-	`, str_Name)))
 }
 
 func main() {
@@ -370,6 +430,10 @@ func main() {
 	http.HandleFunc("/welcomeCookie", welcomeCookie)
 	http.HandleFunc("/logoutCookie", logoutCookie)
 	http.HandleFunc("/cookie", setCookieHandler)
+	http.HandleFunc("/getCode", getCode)
+	http.HandleFunc("/getToken", getToken)
+	http.HandleFunc("/getLogin", getLogin)
+	http.HandleFunc("/check", check)
 
 	fmt.Println("Starting Server at port :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))

@@ -21,8 +21,6 @@ type Credentials struct {
 var str_Token string = ""
 var str_Name string = ""
 
-var userss = make(map[string]string)
-
 // BASED authentication AND READING DATA FROM FILE ----------------------------------------------------------
 
 func readCredentialsFromFile(filepath string) ([]Credentials, error) {
@@ -84,7 +82,7 @@ func basedAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	//w.Write([]byte(`{"message": "welcome to basic world!"}`))
+
 	w.Write([]byte(fmt.Sprintf(`
 		Welcome, %s!
 		<form action="/logout">
@@ -114,15 +112,15 @@ func setCookieHandler(w http.ResponseWriter, r *http.Request) {
 
 	c, err := r.Cookie("username")
 	if err != nil || c.MaxAge == -1 {
-		// Использование параметра
+
 		path := filepath.Join("cookie.html")
-		//создаем html-шаблон
+
 		tmpl, err := template.ParseFiles(path)
 		if err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		//выводим шаблон клиенту в браузер
+
 		err = tmpl.Execute(w, nil)
 		if err != nil {
 			http.Error(w, err.Error(), 400)
@@ -137,13 +135,13 @@ func setCookieHandler(w http.ResponseWriter, r *http.Request) {
 func home(w http.ResponseWriter, r *http.Request) {
 
 	path := filepath.Join("index.html")
-	//создаем html-шаблон
+
 	tmpl, err := template.ParseFiles(path)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	//выводим шаблон клиенту в браузер
+
 	err = tmpl.Execute(w, nil)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
@@ -164,15 +162,15 @@ func redirOnWelcomeCookie(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 
 	if !isAuthorized(string(username), string(password), userCredentials) {
-		// w.WriteHeader(http.StatusUnauthorized)
+
 		path := filepath.Join("qwe.html")
-		//создаем html-шаблон
+
 		tmpl, err := template.ParseFiles(path)
 		if err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		//выводим шаблон клиенту в браузер
+
 		err = tmpl.Execute(w, nil)
 		if err != nil {
 			http.Error(w, err.Error(), 400)
@@ -189,9 +187,6 @@ func redirOnWelcomeCookie(w http.ResponseWriter, r *http.Request) {
 			SameSite: http.SameSiteLaxMode,
 		}
 
-		// Use the http.SetCookie() function to send the cookie to the client.
-		// Behind the scenes this adds a `Set-Cookie` header to the response
-		// containing the necessary cookie data.
 		http.SetCookie(w, &cookie)
 		http.Redirect(w, r, "/welcomeCookie", http.StatusSeeOther)
 	}
@@ -200,13 +195,11 @@ func redirOnWelcomeCookie(w http.ResponseWriter, r *http.Request) {
 func welcomeCookie(w http.ResponseWriter, r *http.Request) {
 
 	path := filepath.Join("welcome.html")
-	//создаем html-шаблон
 	tmpl, err := template.ParseFiles(path)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	//выводим шаблон клиенту в браузер
 	err = tmpl.Execute(w, nil)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
@@ -243,9 +236,6 @@ func logoutCookie(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	}
 
-	// Use the http.SetCookie() function to send the cookie to the client.
-	// Behind the scenes this adds a `Set-Cookie` header to the response
-	// containing the necessary cookie data.
 	http.SetCookie(w, &cookie)
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -265,13 +255,7 @@ func getCode(w http.ResponseWriter, r *http.Request) {
 	}
 	idGlob = id
 
-	w.Write([]byte(fmt.Sprintf(`
-		Welcome, %d!
-		<form action="/getToken">
-			<input type="submit" value="Logout">
-		</form>
-	`, idGlob)))
-	//http.Redirect(w, r, "/welcomeYa", http.StatusSeeOther)
+	http.Redirect(w, r, "/getToken", http.StatusSeeOther)
 }
 
 func check(w http.ResponseWriter, r *http.Request) {
@@ -291,7 +275,6 @@ func getToken(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	// Чтение и декодирование JSON-ответа
 	var response map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {
@@ -299,7 +282,6 @@ func getToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Извлечение access_token
 	accessToken, ok := response["access_token"].(string)
 	if !ok {
 		fmt.Println("Не удалось извлечь access_token из ответа")
@@ -321,13 +303,7 @@ func getToken(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, &cookie)
 
-	w.Write([]byte(fmt.Sprintf(`
-	accessToken = %s
-		<form action="/getLogin">
-			<input type="submit" value="Logout">
-		</form>
-	`, str_Token)))
-
+	http.Redirect(w, r, "/getLogin", http.StatusSeeOther)
 }
 
 func getLogin(w http.ResponseWriter, r *http.Request) {
@@ -342,7 +318,6 @@ func getLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	defer x.Body.Close()
 
-	// Чтение и декодирование JSON-ответа
 	var responsex map[string]interface{}
 	err = json.NewDecoder(x.Body).Decode(&responsex)
 	if err != nil {
@@ -350,7 +325,6 @@ func getLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Извлечение access_token
 	login, ok := responsex["login"].(string)
 	if !ok {
 		fmt.Println("Не удалось извлечь access_token из ответа")
@@ -358,23 +332,20 @@ func getLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	str_Name = login
 
-	w.Write([]byte(fmt.Sprintf(`
-	login = %s
-		<form action="/welcomeYa">
-			<input type="submit" value="Logout">
-		</form>
-	`, str_Name)))
+	http.Redirect(w, r, "/welcomeYa", http.StatusSeeOther)
 }
 
 func welcomeYa(w http.ResponseWriter, r *http.Request) {
+
+	// Вывод страницы welcome.html
 	path := filepath.Join("welcome.html")
-	//создаем html-шаблон
+
 	tmpl, err := template.ParseFiles(path)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	//выводим шаблон клиенту в браузер
+
 	err = tmpl.Execute(w, nil)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
